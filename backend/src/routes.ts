@@ -8,6 +8,11 @@ import usersRoutes from './user.routes';
 
 const router = Router();
 
+// Health check endpoint
+router.get('/', (req, res) => {
+  res.json({ status: 'OK', message: 'Backend is running!' });
+});
+
 router.use('/auth', authRoutes);
 
 router.use('/hobbies', authenticateToken, hobbiesRoutes);

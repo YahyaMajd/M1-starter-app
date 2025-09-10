@@ -13,6 +13,7 @@ sealed class NavigationEvent {
     object NavigateToProfile : NavigationEvent()
     object NavigateToManageProfile : NavigationEvent()
     object NavigateToManageHobbies : NavigationEvent()
+    object NavigateToGitHub : NavigationEvent()
     data class NavigateToAuthWithMessage(val message: String) : NavigationEvent()
     data class NavigateToMainWithMessage(val message: String) : NavigationEvent()
     object NavigateBack : NavigationEvent()
@@ -24,8 +25,7 @@ data class NavigationState(
     val currentRoute: String = NavRoutes.LOADING,
     val isAuthenticated: Boolean = false,
     val needsProfileCompletion: Boolean = false,
-    val isLoading: Boolean = true,
-    val isNavigating: Boolean = false
+    val isLoading: Boolean = true
 )
 
 @Singleton
@@ -159,6 +159,14 @@ class NavigationStateManager @Inject constructor() {
     }
 
     /**
+     * Navigate to GitHub screen
+     */
+    fun navigateToGitHub() {
+        _navigationEvent.value = NavigationEvent.NavigateToGitHub
+        _navigationState.value = _navigationState.value.copy(currentRoute = NavRoutes.GITHUB)
+    }
+
+    /**
      * Navigate back
      */
     fun navigateBack() {
@@ -169,8 +177,6 @@ class NavigationStateManager @Inject constructor() {
      * Handle account deletion
      */
     fun handleAccountDeletion() {
-        _navigationState.value = _navigationState.value.copy(isNavigating = true)
-
         updateAuthenticationState(
             isAuthenticated = false,
             needsProfileCompletion = false,
@@ -200,7 +206,19 @@ class NavigationStateManager @Inject constructor() {
      */
     fun clearNavigationEvent() {
         _navigationEvent.value = NavigationEvent.NoNavigation
-        // Clear navigating flag when navigation is complete
-        _navigationState.value = _navigationState.value.copy(isNavigating = false)
     }
+
+    /** Handle Logout
+     *
+     */
+
+    fun handleLogout() {
+        updateAuthenticationState(
+            isAuthenticated = false,
+            needsProfileCompletion = false,
+            isLoading = false
+        )
+        navigateToAuthWithMessage("Logged out successfully!")
+    }
+
 }

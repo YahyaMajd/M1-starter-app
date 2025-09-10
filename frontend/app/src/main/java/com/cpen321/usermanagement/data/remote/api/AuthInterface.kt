@@ -13,4 +13,7 @@ interface AuthInterface {
 
     @POST("auth/signup")
     suspend fun googleSignUp(@Body request: GoogleLoginRequest): Response<ApiResponse<AuthData>>
+
+    @POST("auth/logout")
+    suspend fun logout(): Response<ApiResponse<Unit>>
 }

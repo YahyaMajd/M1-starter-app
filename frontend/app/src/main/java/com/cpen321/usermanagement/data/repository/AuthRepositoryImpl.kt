@@ -2,6 +2,7 @@ package com.cpen321.usermanagement.data.repository
 
 import android.content.Context
 import android.util.Log
+import androidx.credentials.ClearCredentialStateRequest
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
@@ -16,6 +17,7 @@ import com.cpen321.usermanagement.data.remote.dto.AuthData
 import com.cpen321.usermanagement.data.remote.dto.GoogleLoginRequest
 import com.cpen321.usermanagement.data.remote.dto.User
 import com.cpen321.usermanagement.utils.JsonUtils
+import com.cpen321.usermanagement.utils.JsonUtils.parseErrorMessage
 import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException
@@ -90,7 +92,8 @@ class AuthRepositoryImpl @Inject constructor(
             val response = authInterface.googleSignIn(googleLoginReq)
             if (response.isSuccessful && response.body()?.data != null) {
                 val authData = response.body()!!.data!!
-                tokenManager.saveToken(authData.token)
+                // Use user-specific token storage
+                tokenManager.saveTokenForUser(authData.user._id, authData.token)
                 RetrofitClient.setAuthToken(authData.token)
                 Result.success(authData)
             } else {
@@ -123,7 +126,8 @@ class AuthRepositoryImpl @Inject constructor(
             val response = authInterface.googleSignUp(googleLoginReq)
             if (response.isSuccessful && response.body()?.data != null) {
                 val authData = response.body()!!.data!!
-                tokenManager.saveToken(authData.token)
+                // Use user-specific token storage
+                tokenManager.saveTokenForUser(authData.user._id, authData.token)
                 RetrofitClient.setAuthToken(authData.token)
                 Result.success(authData)
             } else {
@@ -151,17 +155,27 @@ class AuthRepositoryImpl @Inject constructor(
     }
 
     override suspend fun clearToken(): Result<Unit> {
-        tokenManager.clearToken()
+        // Get current user ID before clearing token
+        val currentUser = getCurrentUser()
+        currentUser?.let { user ->
+            tokenManager.clearTokenForUser(user._id)
+        }
         RetrofitClient.setAuthToken(null)
         return Result.success(Unit)
     }
 
     override suspend fun doesTokenExist(): Boolean {
-        return tokenManager.getToken().first() != null
+        val currentUser = getCurrentUser()
+        return currentUser?.let { user ->
+            tokenManager.getTokenForUser(user._id) != null
+        } ?: false
     }
 
     override suspend fun getStoredToken(): String? {
-        return tokenManager.getTokenSync()
+        val currentUser = getCurrentUser()
+        return currentUser?.let { user ->
+            tokenManager.getTokenForUser(user._id)
+        }
     }
 
     override suspend fun getCurrentUser(): User? {
@@ -195,10 +209,43 @@ class AuthRepositoryImpl @Inject constructor(
         val isLoggedIn = doesTokenExist()
         if (isLoggedIn) {
             val token = getStoredToken()
-            token?.let { RetrofitClient.setAuthToken(it) }
+            if (token != null) {
+                RetrofitClient.setAuthToken(token)
+            }
             // Verify token is still valid by trying to get user profile
             return getCurrentUser() != null
         }
         return false
+    }
+
+    override suspend fun deleteAccount(): Result<Unit> {
+        return try {
+            // Get current user ID before deletion
+            val currentUser = getCurrentUser()
+            
+            // First, delete account from backend
+            val response = userInterface.deleteProfile("") // Auth header is handled by interceptor
+            if (response.isSuccessful) {
+                // Account successfully deleted from backend, now clear local state
+                currentUser?.let { user ->
+                    tokenManager.clearTokenForUser(user._id)
+                }
+                RetrofitClient.setAuthToken(null)
+
+                // Clear federated credential state
+                credentialManager.clearCredentialState(ClearCredentialStateRequest())
+
+                Log.i(TAG, "Account deleted successfully")
+                Result.success(Unit)
+            } else {
+                val errorBodyString = response.errorBody()?.string()
+                val errorMessage = parseErrorMessage(errorBodyString, "Failed to delete account.")
+                Log.e(TAG, "Failed to delete account: $errorMessage")
+                Result.failure(Exception(errorMessage))
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Account deletion failed", e)
+            Result.failure(e)
+        }
     }
 }

@@ -3,6 +3,8 @@ package com.cpen321.usermanagement.ui.screens
 import Button
 import Icon
 import MenuButtonItem
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -39,6 +41,7 @@ import com.cpen321.usermanagement.ui.viewmodels.AuthViewModel
 import com.cpen321.usermanagement.ui.viewmodels.ProfileUiState
 import com.cpen321.usermanagement.ui.viewmodels.ProfileViewModel
 import com.cpen321.usermanagement.ui.theme.LocalSpacing
+import kotlinx.coroutines.launch
 
 private data class ProfileDialogState(
     val showDeleteDialog: Boolean = false
@@ -48,7 +51,8 @@ data class ProfileScreenActions(
     val onBackClick: () -> Unit,
     val onManageProfileClick: () -> Unit,
     val onManageHobbiesClick: () -> Unit,
-    val onAccountDeleted: () -> Unit
+    val onAccountDeleted: () -> Unit,
+    val onLoggedOut: () -> Unit
 )
 
 private data class ProfileScreenCallbacks(
@@ -59,7 +63,8 @@ private data class ProfileScreenCallbacks(
     val onDeleteDialogDismiss: () -> Unit,
     val onDeleteDialogConfirm: () -> Unit,
     val onSuccessMessageShown: () -> Unit,
-    val onErrorMessageShown: () -> Unit
+    val onErrorMessageShown: () -> Unit,
+    val onLogoutClick: () -> Unit // NEW
 )
 
 @Composable
@@ -70,6 +75,9 @@ fun ProfileScreen(
 ) {
     val uiState by profileViewModel.uiState.collectAsState()
     val snackBarHostState = remember { SnackbarHostState() }
+    
+    // Add a state to track if navigation has been triggered
+    var isNavigating by remember { mutableStateOf(false) }
 
     // Dialog state
     var dialogState by remember {
@@ -80,26 +88,58 @@ fun ProfileScreen(
     LaunchedEffect(Unit) {
         profileViewModel.clearSuccessMessage()
         profileViewModel.clearError()
+        // Ensure profile data is loaded when ProfileScreen is opened
+        if (profileViewModel.uiState.value.user == null) {
+            profileViewModel.loadProfile()
+        }
     }
 
     ProfileContent(
         uiState = uiState,
         dialogState = dialogState,
         snackBarHostState = snackBarHostState,
+        isNavigating = isNavigating,
         callbacks = ProfileScreenCallbacks(
-            onBackClick = actions.onBackClick,
-            onManageProfileClick = actions.onManageProfileClick,
-            onManageHobbiesClick = actions.onManageHobbiesClick,
+            onBackClick = {
+                if (!isNavigating) {
+                    isNavigating = true
+                    actions.onBackClick()
+                }
+            },
+            onManageProfileClick = {
+                if (!isNavigating) {
+                    isNavigating = true
+                    actions.onManageProfileClick()
+                }
+            },
+            onManageHobbiesClick = {
+                if (!isNavigating) {
+                    isNavigating = true
+                    actions.onManageHobbiesClick()
+                }
+            },
             onDeleteAccountClick = {
-                dialogState = dialogState.copy(showDeleteDialog = true)
+                if (!isNavigating) {
+                    dialogState = dialogState.copy(showDeleteDialog = true)
+                }
             },
             onDeleteDialogDismiss = {
                 dialogState = dialogState.copy(showDeleteDialog = false)
             },
             onDeleteDialogConfirm = {
-                dialogState = dialogState.copy(showDeleteDialog = false)
-                authViewModel.handleAccountDeletion()
-                actions.onAccountDeleted()
+                if (!isNavigating) {
+                    isNavigating = true
+                    dialogState = dialogState.copy(showDeleteDialog = false)
+                    authViewModel.handleAccountDeletion()
+                    actions.onAccountDeleted()
+                }
+            },
+            onLogoutClick = {
+                if (!isNavigating) {
+                    isNavigating = true
+                    profileViewModel.handleLogoutAction()
+                    actions.onLoggedOut()
+                }
             },
             onSuccessMessageShown = profileViewModel::clearSuccessMessage,
             onErrorMessageShown = profileViewModel::clearError
@@ -113,6 +153,7 @@ private fun ProfileContent(
     uiState: ProfileUiState,
     dialogState: ProfileDialogState,
     snackBarHostState: SnackbarHostState,
+    isNavigating: Boolean,
     callbacks: ProfileScreenCallbacks,
     modifier: Modifier = Modifier
 ) {
@@ -136,9 +177,11 @@ private fun ProfileContent(
         ProfileBody(
             paddingValues = paddingValues,
             isLoading = uiState.isLoadingProfile,
+            isNavigating = isNavigating,
             onManageProfileClick = callbacks.onManageProfileClick,
             onManageHobbiesClick = callbacks.onManageHobbiesClick,
-            onDeleteAccountClick = callbacks.onDeleteAccountClick
+            onDeleteAccountClick = callbacks.onDeleteAccountClick,
+            onLogoutClick = callbacks.onLogoutClick
         )
     }
 
@@ -181,9 +224,11 @@ private fun ProfileTopBar(
 private fun ProfileBody(
     paddingValues: PaddingValues,
     isLoading: Boolean,
+    isNavigating: Boolean,
     onManageProfileClick: () -> Unit,
     onManageHobbiesClick: () -> Unit,
     onDeleteAccountClick: () -> Unit,
+    onLogoutClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Box(
@@ -202,9 +247,24 @@ private fun ProfileBody(
                 ProfileMenuItems(
                     onManageProfileClick = onManageProfileClick,
                     onManageHobbiesClick = onManageHobbiesClick,
-                    onDeleteAccountClick = onDeleteAccountClick
+                    onDeleteAccountClick = onDeleteAccountClick,
+                    onLogoutClick = onLogoutClick
                 )
             }
+        }
+        
+        // Transparent overlay when navigating to block all interactions
+        if (isNavigating) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clickable(
+                        indication = null,
+                        interactionSource = remember { MutableInteractionSource() }
+                    ) { 
+                        // Consume all clicks when navigating
+                    }
+            )
         }
     }
 }
@@ -214,6 +274,7 @@ private fun ProfileMenuItems(
     onManageProfileClick: () -> Unit,
     onManageHobbiesClick: () -> Unit,
     onDeleteAccountClick: () -> Unit,
+    onLogoutClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val spacing = LocalSpacing.current
@@ -232,7 +293,8 @@ private fun ProfileMenuItems(
         )
 
         AccountSection(
-            onDeleteAccountClick = onDeleteAccountClick
+            onDeleteAccountClick = onDeleteAccountClick,
+            onLogoutClick = onLogoutClick
         )
     }
 }
@@ -247,21 +309,31 @@ private fun ProfileSection(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(LocalSpacing.current.medium)
     ) {
-        ManageProfileButton(onClick = onManageProfileClick)
-        ManageHobbiesButton(onClick = onManageHobbiesClick)
+        ManageProfileButton(
+            onClick = onManageProfileClick
+        )
+        ManageHobbiesButton(
+            onClick = onManageHobbiesClick
+        )
     }
 }
 
 @Composable
 private fun AccountSection(
     onDeleteAccountClick: () -> Unit,
+    onLogoutClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(LocalSpacing.current.medium)
     ) {
-        DeleteAccountButton(onClick = onDeleteAccountClick)
+        DeleteAccountButton(
+            onClick = onDeleteAccountClick
+        )
+        LogoutButton(
+            onClick = onLogoutClick
+        )
     }
 }
 
@@ -374,4 +446,15 @@ private fun LoadingIndicator(
     modifier: Modifier = Modifier
 ) {
     CircularProgressIndicator(modifier = modifier)
+}
+
+@Composable
+private fun LogoutButton(
+    onClick: () -> Unit
+){
+    MenuButtonItem(
+        text = stringResource(R.string.logout),
+        iconRes = R.drawable.ic_sign_out,
+        onClick = onClick,
+    )
 }

@@ -2,8 +2,11 @@ package com.cpen321.usermanagement.di
 
 import com.cpen321.usermanagement.data.repository.AuthRepository
 import com.cpen321.usermanagement.data.repository.AuthRepositoryImpl
+import com.cpen321.usermanagement.data.repository.GitHubRepository
+import com.cpen321.usermanagement.data.repository.GitHubRepositoryImpl
 import com.cpen321.usermanagement.data.repository.ProfileRepository
 import com.cpen321.usermanagement.data.repository.ProfileRepositoryImpl
+import dagger.Binds
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -12,21 +15,23 @@ import javax.inject.Singleton
 
 @Module
 @InstallIn(SingletonComponent::class)
-object RepositoryModule {
+abstract class RepositoryModule {
 
-    @Provides
+    @Binds
     @Singleton
-    fun provideAuthRepository(
+    abstract fun provideAuthRepository(
         authRepositoryImpl: AuthRepositoryImpl
-    ): AuthRepository {
-        return authRepositoryImpl
-    }
+    ): AuthRepository
 
-    @Provides
+    @Binds
     @Singleton
-    fun provideProfileRepository(
+    abstract fun provideProfileRepository(
         profileRepositoryImpl: ProfileRepositoryImpl
-    ): ProfileRepository {
-        return profileRepositoryImpl
-    }
+    ): ProfileRepository
+
+    @Binds
+    @Singleton
+    abstract fun provideGitHubRepository(
+        gitHubRepositoryImpl: GitHubRepositoryImpl
+    ): GitHubRepository
 }

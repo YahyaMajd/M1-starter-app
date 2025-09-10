@@ -26,7 +26,10 @@ data class ProfileUiState(
 
     // Message states
     val errorMessage: String? = null,
-    val successMessage: String? = null
+    val successMessage: String? = null,
+
+    // NEW:
+    val isLoggingOut: Boolean = false
 )
 
 @HiltViewModel
@@ -142,6 +145,10 @@ class ProfileViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(successMessage = null)
     }
 
+    fun clearState() {
+        _uiState.value = ProfileUiState()
+    }
+
     fun setLoadingPhoto(isLoading: Boolean) {
         _uiState.value = _uiState.value.copy(isLoadingPhoto = isLoading)
     }
@@ -179,6 +186,27 @@ class ProfileViewModel @Inject constructor(
                 _uiState.value = _uiState.value.copy(
                     isSavingProfile = false,
                     errorMessage = errorMessage
+                )
+            }
+        }
+    }
+
+    fun handleLogoutAction() {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoggingOut = true, errorMessage = null)
+
+            val result = profileRepository.logout()
+
+            if (result.isSuccess) {
+                // Clear all user data from ProfileViewModel state after successful logout
+                _uiState.value = ProfileUiState(
+                    isLoggingOut = false
+                )
+            } else {
+                val msg = result.exceptionOrNull()?.message ?: "Failed to log out"
+                _uiState.value = _uiState.value.copy(
+                    isLoggingOut = false,
+                    errorMessage = msg
                 )
             }
         }

@@ -8,7 +8,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import javax.inject.Inject
 
 data class MainUiState(
-    val successMessage: String? = null
+    val successMessage: String? = null,
+    val selectedTab: MainTab = MainTab.GITHUB,  // Default to GitHub tab
+    val showGitHubSummary: Boolean = true  // Default to summary view
 )
 
 @HiltViewModel
@@ -23,5 +25,15 @@ class MainViewModel @Inject constructor() : ViewModel() {
 
     fun clearSuccessMessage() {
         _uiState.value = _uiState.value.copy(successMessage = null)
+    }
+
+    fun selectTab(tab: MainTab) {
+        _uiState.value = _uiState.value.copy(selectedTab = tab)
+    }
+
+    fun toggleGitHubView() {
+        _uiState.value = _uiState.value.copy(
+            showGitHubSummary = !_uiState.value.showGitHubSummary
+        )
     }
 }

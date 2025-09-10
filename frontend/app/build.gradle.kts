@@ -23,6 +23,9 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        
+        // GitHub OAuth redirect scheme
+        manifestPlaceholders["appAuthRedirectScheme"] = "com.cpen321.usermanagement.github"
     }
 
     buildTypes {
@@ -67,6 +70,7 @@ dependencies {
     
     // Hilt Dependency Injection
     implementation(libs.hilt.android)
+    implementation(libs.play.services.maps)
     ksp(libs.hilt.android.compiler)
     implementation(libs.hilt.navigation.compose)
     
@@ -77,6 +81,10 @@ dependencies {
     implementation(libs.retrofit)
     implementation(libs.converter.gson)
     implementation(libs.logging.interceptor)
+    
+    // GitHub OAuth
+    implementation("androidx.browser:browser:1.7.0")
+    implementation("net.openid:appauth:0.11.1")
     
     // Image loading
     implementation(libs.coil.compose)

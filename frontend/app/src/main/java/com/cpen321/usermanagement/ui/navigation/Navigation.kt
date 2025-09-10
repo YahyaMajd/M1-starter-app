@@ -13,6 +13,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.cpen321.usermanagement.R
 import com.cpen321.usermanagement.ui.screens.AuthScreen
+import com.cpen321.usermanagement.ui.screens.GitHubScreen
+import com.cpen321.usermanagement.ui.screens.GitHubSetupScreen
 import com.cpen321.usermanagement.ui.screens.LoadingScreen
 import com.cpen321.usermanagement.ui.screens.MainScreen
 import com.cpen321.usermanagement.ui.screens.ManageHobbiesScreen
@@ -33,6 +35,8 @@ object NavRoutes {
     const val MANAGE_PROFILE = "manage_profile"
     const val MANAGE_HOBBIES = "manage_hobbies"
     const val PROFILE_COMPLETION = "profile_completion"
+    const val GITHUB = "github"
+    const val GITHUB_SETUP = "github_setup"
 }
 
 @Composable
@@ -64,6 +68,7 @@ fun AppNavigation(
         authViewModel = authViewModel,
         profileViewModel = profileViewModel,
         mainViewModel = mainViewModel,
+        navigationViewModel = navigationViewModel,
         navigationStateManager = navigationStateManager
     )
 }
@@ -128,6 +133,11 @@ private fun handleNavigationEvent(
             navigationStateManager.clearNavigationEvent()
         }
 
+        is NavigationEvent.NavigateToGitHub -> {
+            navController.navigate(NavRoutes.GITHUB)
+            navigationStateManager.clearNavigationEvent()
+        }
+
         is NavigationEvent.NavigateBack -> {
             navController.popBackStack()
             navigationStateManager.clearNavigationEvent()
@@ -149,6 +159,7 @@ private fun AppNavHost(
     navController: NavHostController,
     authViewModel: AuthViewModel,
     profileViewModel: ProfileViewModel,
+    navigationViewModel: NavigationViewModel,
     mainViewModel: MainViewModel,
     navigationStateManager: NavigationStateManager
 ) {
@@ -178,6 +189,8 @@ private fun AppNavHost(
         composable(NavRoutes.MAIN) {
             MainScreen(
                 mainViewModel = mainViewModel,
+                navigationViewModel = navigationViewModel,
+                profileViewModel = profileViewModel,
                 onProfileClick = { navigationStateManager.navigateToProfile() }
             )
         }
@@ -190,7 +203,20 @@ private fun AppNavHost(
                     onBackClick = { navigationStateManager.navigateBack() },
                     onManageProfileClick = { navigationStateManager.navigateToManageProfile() },
                     onManageHobbiesClick = { navigationStateManager.navigateToManageHobbies() },
-                    onAccountDeleted = { navigationStateManager.handleAccountDeletion() }
+                    onAccountDeleted = { 
+                        authViewModel.handleAccountDeletion()
+                        navigationStateManager.handleAccountDeletion() 
+                    },
+                    onLoggedOut = {
+                        // First handle logout in ProfileViewModel (clears tokens, calls backend)
+                        profileViewModel.handleLogoutAction()
+                        // Clear ProfileViewModel state completely
+                        profileViewModel.clearState()
+                        // Then clear AuthViewModel state
+                        authViewModel.handleLogout()
+                        // Finally trigger navigation
+                        navigationStateManager.handleLogout() 
+                    }
                 )
             )
         }
@@ -206,6 +232,21 @@ private fun AppNavHost(
             ManageHobbiesScreen(
                 profileViewModel = profileViewModel,
                 onBackClick = { navigationStateManager.navigateBack() }
+            )
+        }
+
+        composable(NavRoutes.GITHUB) {
+            GitHubScreen(
+                onSetupClick = { navController.navigate(NavRoutes.GITHUB_SETUP) }
+            )
+        }
+
+        composable(NavRoutes.GITHUB_SETUP) {
+            GitHubSetupScreen(
+                onBackClick = { navController.popBackStack() },
+                onSetupComplete = { 
+                    navController.popBackStack(NavRoutes.GITHUB, false)
+                }
             )
         }
     }

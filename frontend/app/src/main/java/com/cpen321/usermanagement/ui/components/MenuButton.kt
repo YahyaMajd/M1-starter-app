@@ -16,14 +16,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.cpen321.usermanagement.ui.theme.LocalSpacing
+import com.cpen321.usermanagement.ui.utils.debouncedClickable
 
 @Composable
 fun MenuButton(
-    enabled: Boolean = true,
     onClick: () -> Unit,
     content: @Composable RowScope.() -> Unit,
 ) {
     val spacing = LocalSpacing.current
+    val debouncedClick = debouncedClickable(debounceTime = 600L, onClick = onClick)
 
     val colors = ButtonDefaults.buttonColors(
         containerColor = Color.White,
@@ -35,8 +36,7 @@ fun MenuButton(
     OutlinedButton(
         colors = colors,
         border = border,
-        onClick = onClick,
-        enabled = enabled,
+        onClick = debouncedClick,
         modifier = Modifier
             .fillMaxWidth()
             .height(spacing.extraLarge2),
@@ -54,7 +54,6 @@ fun MenuButtonItem(
     val spacing = LocalSpacing.current
 
     MenuButton(
-        enabled = true,
         onClick = onClick,
     ) {
         Row(

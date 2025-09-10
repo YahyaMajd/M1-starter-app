@@ -81,6 +81,9 @@ class AuthViewModel @Inject constructor(
                 handleAuthError("No internet connection. Please check your network.", e)
             } catch (e: java.io.IOException) {
                 handleAuthError("Connection error. Please try again.", e)
+            } catch (e: Exception) {
+                Log.e(TAG, "Unexpected error during auth check", e)
+                handleAuthError("Authentication check failed. Please try again.", e)
             }
         }
     }
@@ -171,10 +174,42 @@ class AuthViewModel @Inject constructor(
 
     fun handleAccountDeletion() {
         viewModelScope.launch {
+            try {
+                Log.d(TAG, "Starting account deletion")
+                
+                val result = authRepository.deleteAccount()
+                
+                if (result.isSuccess) {
+                    Log.d(TAG, "Account deletion successful")
+                    _uiState.value = AuthUiState(
+                        isAuthenticated = false,
+                        isCheckingAuth = false,
+                        shouldSkipAuthCheck = true,
+                        successMessage = "Account deleted successfully"
+                    )
+                    navigationStateManager.navigateToAuth()
+                } else {
+                    Log.e(TAG, "Account deletion failed: ${result.exceptionOrNull()?.message}")
+                    _uiState.value = _uiState.value.copy(
+                        errorMessage = result.exceptionOrNull()?.message ?: "Failed to delete account"
+                    )
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Account deletion error", e)
+                _uiState.value = _uiState.value.copy(
+                    errorMessage = "An error occurred while deleting account: ${e.message}"
+                )
+            }
+        }
+    }
+
+    fun handleLogout() {
+        viewModelScope.launch {
             authRepository.clearToken()
             _uiState.value = AuthUiState(
                 isAuthenticated = false,
                 isCheckingAuth = false,
+                user = null, // Clear user data
                 shouldSkipAuthCheck = true // Skip auth check after manual sign out
             )
         }

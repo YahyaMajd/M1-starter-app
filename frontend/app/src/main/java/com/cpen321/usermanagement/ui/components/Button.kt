@@ -8,6 +8,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import com.cpen321.usermanagement.ui.theme.LocalSpacing
+import com.cpen321.usermanagement.ui.utils.debouncedClickable
 
 @Composable
 fun Button(
@@ -18,6 +19,7 @@ fun Button(
     content: @Composable RowScope.() -> Unit,
 ) {
     val spacing = LocalSpacing.current
+    val debouncedClick = debouncedClickable(debounceTime = 600L, onClick = onClick)
 
     var colors = ButtonDefaults.buttonColors()
     if (type == "secondary") {
@@ -34,7 +36,7 @@ fun Button(
 
     Button(
         colors = colors,
-        onClick = onClick,
+        onClick = debouncedClick,
         enabled = enabled,
         modifier = modifier,
     ) {

@@ -2,6 +2,6 @@
 
 ## Deployment info
 
-The public IP of your back-end server: https://m1-starter-a6dj0m2r0-yahya-abouelmagds-projects.vercel.app
+The public IP of your back-end server: [SERVER_PUBLIC_IP]
 
-Domain name (if any): m1-starter-a6dj0m2r0-yahya-abouelmagds-projects.vercel.app
+Domain name (if any): [SERVER_PUBLIC_NAME_OR_EMPTY]

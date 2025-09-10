@@ -1,0 +1,10 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const storage_1 = require("./storage");
+const auth_middleware_1 = require("./auth.middleware");
+const media_controller_1 = require("./media.controller");
+const router = (0, express_1.Router)();
+const mediaController = new media_controller_1.MediaController();
+router.post('/upload', auth_middleware_1.authenticateToken, storage_1.upload.single('media'), mediaController.uploadImage);
+exports.default = router;

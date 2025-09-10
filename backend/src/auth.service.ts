@@ -10,7 +10,10 @@ export class AuthService {
   private googleClient: OAuth2Client;
 
   constructor() {
-    this.googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+    this.googleClient = new OAuth2Client(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET
+    );
   }
 
   private async verifyGoogleToken(idToken: string): Promise<GoogleUserInfo> {

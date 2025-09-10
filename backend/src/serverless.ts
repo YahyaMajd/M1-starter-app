@@ -17,6 +17,15 @@ app.use(express.json());
 app.use('/api', router);
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
+// Health check at root
+app.get('/', (req, res) => {
+  res.json({ 
+    message: 'CPEN321 Backend API is running',
+    status: 'OK',
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Error handlers
 app.use('*', notFoundHandler);
 app.use(errorHandler);
@@ -26,8 +35,13 @@ let isConnected = false;
 
 const connectToDatabase = async () => {
   if (!isConnected) {
-    await connectDB();
-    isConnected = true;
+    try {
+      await connectDB();
+      isConnected = true;
+      console.log('Database connected successfully');
+    } catch (error) {
+      console.error('Database connection failed:', error);
+    }
   }
 };
 

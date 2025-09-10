@@ -22,7 +22,7 @@ services:
       - MONGODB_URI=${MONGODB_URI}
       - PORT=${PORT}
     ports:
-      - "80:3000"
+      - "${PORT}:${PORT}"
     depends_on:
       - mongo
     command: npm start

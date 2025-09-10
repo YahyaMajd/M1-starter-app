@@ -5,8 +5,14 @@ import path from 'path';
 
 import { IMAGES_DIR } from './hobbies';
 
-if (!fs.existsSync(IMAGES_DIR)) {
-  fs.mkdirSync(IMAGES_DIR, { recursive: true });
+// Safely create directory only if possible (skip in serverless environments)
+try {
+  if (!fs.existsSync(IMAGES_DIR)) {
+    fs.mkdirSync(IMAGES_DIR, { recursive: true });
+  }
+} catch (error) {
+  // Ignore filesystem errors in serverless environments
+  console.warn('Cannot create uploads directory (serverless environment)');
 }
 
 const storage = multer.diskStorage({

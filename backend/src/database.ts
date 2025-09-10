@@ -1,10 +1,26 @@
 import mongoose from 'mongoose';
 
+
+
 export const connectDB = async (): Promise<void> => {
   try {
-    const uri = process.env.MONGODB_URI!;
+    // If already connected, return
+    if (mongoose.connection.readyState === 1) {
+      console.log('✅ MongoDB already connected');
+      return;
+    }
 
-    await mongoose.connect(uri);
+    const uri = process.env.MONGODB_URI;
+    if (!uri) {
+      throw new Error('MONGODB_URI environment variable is not set');
+    }
+
+    await mongoose.connect(uri, {
+      // Optimize for serverless
+      maxPoolSize: 10,
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
+    });
 
     console.log(`✅ MongoDB connected successfully`);
 
@@ -16,14 +32,17 @@ export const connectDB = async (): Promise<void> => {
       console.log('⚠️ MongoDB disconnected');
     });
 
-    process.on('SIGINT', async () => {
-      await mongoose.connection.close();
-      console.log('MongoDB connection closed through app termination');
-      process.exitCode = 0;
-    });
+    // Only set up process handlers in non-serverless environments
+    if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
+      process.on('SIGINT', async () => {
+        await mongoose.connection.close();
+        console.log('MongoDB connection closed through app termination');
+        process.exitCode = 0;
+      });
+    }
   } catch (error) {
     console.error('❌ Failed to connect to MongoDB:', error);
-    process.exitCode = 1;
+    throw error; // Re-throw to handle in calling code
   }
 };
 

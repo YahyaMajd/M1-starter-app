@@ -32,7 +32,76 @@
 
 The root cause was that the frontend `handleAccountDeletion()` method only cleared local authentication state without calling the backend API, leaving user data intact in the database.
 
-### Issue 3: Navigation Button Ghost Clicks
+### Issue 3: Profile Photo Upload Not Working
+
+**Description**: Users could successfully take photos using the camera or select images from gallery through the image picker, but the photos were not actually being saved to the backend server. The photo would appear temporarily in the UI, but would disappear after app restart since it was never uploaded to the server. Users would see a "Profile picture updated successfully!" message, but this was misleading as no actual upload occurred.
+
+**Root Cause Analysis**: The `ProfileViewModel.uploadProfilePicture()` method was only updating the local UI state with the image URI instead of performing an actual upload to the backend server. The implementation was:
+
+```kotlin
+fun uploadProfilePicture(pictureUri: Uri) {
+    viewModelScope.launch {
+        val currentUser = _uiState.value.user ?: return@launch
+        val updatedUser = currentUser.copy(profilePicture = pictureUri.toString())
+        _uiState.value = _uiState.value.copy(isLoadingPhoto = false, user= updatedUser, successMessage = "Profile picture updated successfully!")
+    }
+}
+```
+
+This was essentially a "fake" implementation that only showed the image locally using the temporary URI.
+
+**How it was fixed?**: 
+
+**Backend Verification**: The backend already had complete upload functionality:
+- ✅ `MediaController.uploadImage()` - Handles multipart file upload
+- ✅ `MediaService.saveImage()` - Saves images to filesystem with proper naming
+- ✅ `storage.ts` - Multer configuration for image processing  
+- ✅ `/api/media/upload` endpoint - Ready to receive images
+- ✅ `ImageInterface.kt` - Frontend interface already defined
+
+**Frontend Implementation**:
+
+1. **Added Repository Method**: Added `uploadProfilePicture(pictureUri: Uri): Result<String>` to `ProfileRepository` interface
+
+2. **Implemented Upload Logic**: Created complete implementation in `ProfileRepositoryImpl.kt`:
+   - Convert URI to File using existing `MediaUtils.uriToFile()`
+   - Create multipart request body with proper content type
+   - Call `imageInterface.uploadPicture()` to upload to backend
+   - Handle response and return image URL from server
+
+3. **Fixed Dependency Injection**: 
+   - Added `ImageInterface` parameter to `ProfileRepositoryImpl` constructor
+   - Updated `NetworkModule.kt` to provide `ImageInterface` via `provideImageInterface()`
+   - Resolved duplicate binding conflicts in Hilt configuration
+
+4. **Enhanced ViewModel**: Completely rewrote `uploadProfilePicture()` method to:
+   - Set proper loading state during upload
+   - Call repository upload method 
+   - Update user profile with returned image URL from server
+   - Handle upload errors with appropriate user feedback
+   - Only show success message when upload actually completes
+
+5. **Updated Profile Update**: Enhanced repository `updateProfile()` method to accept optional `profilePicture` parameter for updating user profile with new image URL
+
+**Technical Changes**:
+- **ProfileRepository.kt**: Added `uploadProfilePicture()` interface method
+- **ProfileRepositoryImpl.kt**: Implemented actual upload with multipart requests
+- **ProfileViewModel.kt**: Replaced fake local update with real backend upload
+- **NetworkModule.kt**: Fixed duplicate `ImageInterface` providers and dependency injection
+- **UpdateProfileRequest.kt**: Already supported `profilePicture` field
+
+**Verification**: Photo upload now works end-to-end:
+- ✅ User takes photo → Image picker captures URI
+- ✅ Upload initiated → Loading state shown to user  
+- ✅ File converted → `MediaUtils.uriToFile()` processes URI
+- ✅ Multipart upload → Posted to `/api/media/upload`
+- ✅ Backend saves → File stored with user ID naming
+- ✅ URL returned → Backend responds with saved image path
+- ✅ Profile updated → User record updated with new image URL
+- ✅ UI refreshed → AsyncImage loads from server URL
+- ✅ Persistence → Photo survives app restarts
+
+### Issue 4: Navigation Button Ghost Clicks
 
 **Description**: When navigating from the profile section back to the main screen, rapidly clicking on the position where profile buttons (like "Manage Hobbies") were located can still trigger navigation to those screens, even though the user is now on the main screen. This suggests that the previous screen's click handlers are still active or there's a timing issue with UI composition/navigation state updates.
 
@@ -57,7 +126,7 @@ The root cause was that the frontend `handleAccountDeletion()` method only clear
 - **Visual Feedback**: Buttons become disabled, providing clear UI feedback
 - **Universal Protection**: Works for all navigation actions from ProfileScreen
 
-### Issue 4: Bio Editing Disabled in Manage Profile
+### Issue 5: Bio Editing Disabled in Manage Profile
 
 **Description**: Users could only edit their bio during the initial sign-in/profile completion flow. When accessing the "Manage Profile" section later, the bio field was read-only, preventing users from updating their bio after the initial setup. The text field appeared editable but didn't respond to user input.
 

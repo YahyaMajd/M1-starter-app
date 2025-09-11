@@ -35,7 +35,7 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideMediaService(): ImageInterface {
+    fun provideImageInterface(): ImageInterface {
         return RetrofitClient.imageInterface
     }
 

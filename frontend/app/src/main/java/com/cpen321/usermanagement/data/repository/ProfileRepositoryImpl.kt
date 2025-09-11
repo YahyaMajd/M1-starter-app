@@ -12,7 +12,6 @@ import com.cpen321.usermanagement.data.remote.api.RetrofitClient
 import com.cpen321.usermanagement.data.remote.api.UserInterface
 import com.cpen321.usermanagement.data.remote.dto.UpdateProfileRequest
 import com.cpen321.usermanagement.data.remote.dto.User
-import com.cpen321.usermanagement.data.repository.GitHubRepository
 import com.cpen321.usermanagement.utils.JsonUtils.parseErrorMessage
 import com.cpen321.usermanagement.utils.MediaUtils.uriToFile
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -24,10 +23,8 @@ import javax.inject.Singleton
 
 
 import androidx.credentials.CredentialManager
-import androidx.credentials.CustomCredential
-import androidx.credentials.GetCredentialRequest
-import androidx.credentials.GetCredentialResponse
-import androidx.credentials.exceptions.GetCredentialException
+
+@Suppress("UNCHECKED_CAST")
 @Singleton
 class ProfileRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -35,6 +32,7 @@ class ProfileRepositoryImpl @Inject constructor(
     private val hobbyInterface: HobbyInterface,
     private val authInterface: AuthInterface,
     private val tokenManager: TokenManager,
+    private val imageInterface: ImageInterface,
     private val gitHubRepository: GitHubRepository
 ) : ProfileRepository {
 
@@ -76,9 +74,9 @@ class ProfileRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun updateProfile(name: String, bio: String): Result<User> {
+    override suspend fun updateProfile(name: String, bio: String, profilePicture: String?): Result<User> {
         return try {
-            val updateRequest = UpdateProfileRequest(name = name, bio = bio)
+            val updateRequest = UpdateProfileRequest(name = name, bio = bio, profilePicture = profilePicture)
             val response = userInterface.updateProfile("", updateRequest) // Auth header is handled by interceptor
             if (response.isSuccessful && response.body()?.data != null) {
                 Result.success(response.body()!!.data!!.user)
@@ -129,6 +127,29 @@ class ProfileRepositoryImpl @Inject constructor(
             Log.e(TAG, "HTTP error while updating hobbies: ${e.code()}", e)
             Result.failure(e)
         }
+    }
+
+    override suspend fun uploadProfilePicture(pictureUri: Uri): Result<String> {
+        return try {
+
+            // Convert URI to File and make request
+
+            val file = uriToFile(context, pictureUri)
+            val requestFile = file.asRequestBody("image/*".toMediaType())
+            val mediaPart = MultipartBody.Part.createFormData("media", file.name, requestFile)
+
+            //upload picture
+            val response = imageInterface.uploadPicture("", mediaPart)
+
+
+            if (response.isSuccessful && response.body()?.data != null) {
+                Result.success(response.body()!!.data!!.image)
+            } else {
+                Log.d(TAG,"Failed to uplaod image")
+            }
+        } catch (e: Exception) {
+            throw e
+        } as Result<String>
     }
 
     override suspend fun getAvailableHobbies(): Result<List<String>> {
